@@ -1,0 +1,47 @@
+# This workflow will build a .NET project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
+
+name: .NET
+
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ "*" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  packages: write
+
+env:
+  SolutionDir: ${{ github.workspace }}/src
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+    - name: Restore dependencies
+      run: dotnet restore
+      working-directory: ${{ env.SolutionDir }}
+    - name: Build
+      run: dotnet build --nologo --no-restore --configuration Release
+      working-directory: ${{ env.SolutionDir }}
+    - name: Pack
+      run: dotnet pack --nologo --no-build --configuration Release --output ./artifacts
+      working-directory: ${{ env.SolutionDir }}
+    - name: Push to GitHub Packages
+      if: github.event_name == 'push' && github.ref_type == 'tag'
+      run: dotnet nuget push ./artifacts/*.nupkg --source "https://nuget.pkg.github.com/VAllens/index.json" --skip-duplicate --api-key "${{ secrets.GITHUB_TOKEN }}"
+      working-directory: ${{ env.SolutionDir }}
+    - name: Push to NuGet
+      if: github.event_name == 'push' && github.ref_type == 'tag'
+      run: dotnet nuget push ./artifacts/*.nupkg --source "https://api.nuget.org/v3/index.json" --skip-duplicate --api-key "${{ secrets.NUGET_API_KEY }}"
+      working-directory: ${{ env.SolutionDir }}
